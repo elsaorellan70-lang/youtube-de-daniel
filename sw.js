@@ -1,7 +1,7 @@
-/* NeonTube SW v3 — cachea SOLO el shell same-origin.
+﻿/* NeonTube SW v3 — cachea SOLO el shell same-origin.
    YouTube/Googleapis siempre por red. Sube CACHE al tocar este archivo. */
 'use strict';
-const CACHE = 'neontube-shell-v3';
+const CACHE = 'neontube-shell-v5';
 const SHELL = Object.freeze([
   './', './index.html', './styles.css', './app.js',
   './manifest.webmanifest', './icon.svg'

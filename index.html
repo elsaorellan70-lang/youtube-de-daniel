@@ -1,11 +1,10 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#050806">
-  <!-- v5: preconnect = menos latencia en primera carga móvil -->
   <link rel="preconnect" href="https://www.googleapis.com">
   <link rel="preconnect" href="https://i.ytimg.com">
   <link rel="preconnect" href="https://www.youtube.com">
@@ -18,12 +17,12 @@
                  media-src 'self' https://commondatastorage.googleapis.com;
                  object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="logo.png" type="image/png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icon.svg">
-  <title>NeonTube — tu YouTube, tu estilo</title>
+  <link rel="apple-touch-icon" href="logo.png">
+  <title>YouTube Personal de Daniel</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,12 +30,10 @@
   <div id="topProgress" hidden></div>
 
   <header class="topbar glass">
-    <span class="brand-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg>
-    </span>
-    <h1 class="brand">Neon<span>Tube</span></h1>
+    <img class="brand-logo-img" src="logo.png" alt="Logo de Daniel" width="34" height="34">
+    <h1 class="brand">YouTube <span>Personal</span> de Daniel</h1>
     <span class="spacer"></span>
-    <button class="icon-btn" id="btnSettings" type="button" aria-label="Ajustes y API key">
+    <button class="icon-btn" id="btnSettings" type="button" aria-label="Ajustes">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg>
     </button>
     <button class="icon-btn" id="btnQueueTop" type="button" aria-label="Ver cola">
@@ -49,8 +46,11 @@
     <span class="icon neon" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
     </span>
-    <input id="searchInput" type="search" placeholder="Busca en YouTube: artistas, temas, canales…"
+    <input id="searchInput" type="search" placeholder="Busca o dicta: artistas, temas, canales…"
            autocomplete="off" enterkeyhint="search" maxlength="80" aria-label="Buscar en YouTube">
+    <button class="icon-btn" id="btnVoice" type="button" aria-label="Búsqueda por voz">
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="10" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
     <button class="icon-btn" id="btnClear" type="button" aria-label="Limpiar búsqueda">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
@@ -59,7 +59,13 @@
     </button>
   </section>
 
+  <div id="recentRow" class="chips" hidden aria-label="Búsquedas recientes"></div>
   <nav class="chips" id="chips" aria-label="Categorías"></nav>
+
+  <section id="continueWrap" hidden>
+    <h3 class="sec-h">Seguir viendo</h3>
+    <div id="continueRow" class="hscroll"></div>
+  </section>
 
   <div id="demoNote" class="note glass" hidden></div>
 
@@ -83,19 +89,6 @@
   </div>
 
   <section id="player" class="player" hidden aria-label="Reproductor">
-    <header class="p-head glass">
-      <button class="icon-btn" id="btnMinimize" type="button" aria-label="Minimizar">
-        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="p-titles"><strong id="pTitle">—</strong><span id="pChannel">—</span></div>
-      <button class="icon-btn" id="btnAudioOnly" type="button" aria-label="Modo solo audio" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>
-      </button>
-      <button class="icon-btn" id="btnClosePlayer" type="button" aria-label="Cerrar reproductor">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-    </header>
-
     <div class="p-stage" id="pStage">
       <video id="video" playsinline preload="metadata" hidden></video>
       <div id="ytHost"></div>
@@ -106,31 +99,84 @@
       <div class="gfx" id="gfxRight" hidden>
         <svg viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg><span>+10 s</span>
       </div>
+
+      <div id="stageUI" class="stage-ui">
+        <div class="ov-top">
+          <button class="icon-btn ov" id="btnMinimize" type="button" aria-label="Minimizar">
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="ov-titles"><strong id="pTitle">—</strong><span id="pChannel">—</span></div>
+          <button class="icon-btn ov" id="btnFav" type="button" aria-label="Favorito" aria-pressed="false">
+            <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9c-1.2-2.8.6-6 3.8-6 2 0 3.2 1.2 5.2 3.4C14 6.2 15.2 5 17.2 5c3.2 0 5 3.2 3.8 6-2 4.5-9 9-9 9z"/></svg>
+          </button>
+          <button class="icon-btn ov" id="btnAudioOnly" type="button" aria-label="Modo solo audio" aria-pressed="false">
+            <svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>
+          </button>
+          <button class="icon-btn ov" id="btnClosePlayer" type="button" aria-label="Cerrar reproductor">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        <div class="ov-center">
+          <button class="icon-btn ov big" id="btnBack10" type="button" aria-label="Retroceder 10 segundos">
+            <svg viewBox="0 0 24 24"><path d="M11 6l-6 6 6 6M18 6l-6 6 6 6"/></svg>
+          </button>
+          <button class="play-btn" id="btnPlay" type="button" aria-label="Reproducir o pausar">
+           <img src="logo.png" alt="Logo de Daniel" width="26" height="26" style="border-radius:6px;object-fit:cover">
+          </button>
+          <button class="icon-btn ov big" id="btnFwd10" type="button" aria-label="Adelantar 10 segundos">
+            <svg viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+
+        <div class="ov-bottom">
+          <div class="ov-times">
+            <span id="tCur">0:00</span>
+            <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Progreso">
+            <span id="tDur">0:00</span>
+          </div>
+          <div class="ov-vol">
+            <button class="icon-btn ov sm" id="btnMute" type="button" aria-label="Silenciar">
+              <svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6l-5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg>
+            </button>
+            <input type="range" id="vol" min="0" max="100" step="1" value="100" aria-label="Volumen">
+          </div>
+          <div class="ov-actions">
+            <button class="ov-label" id="btnCC" type="button" aria-label="Subtítulos" aria-pressed="false">CC</button>
+            <button class="ov-label" id="btnQuality" type="button" aria-label="Calidad de vídeo">HD</button>
+            <button class="ov-label" id="btnRate" type="button" aria-label="Velocidad">1x</button>
+            <button class="icon-btn ov" id="btnNext" type="button" aria-label="Siguiente">
+              <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8 6-8 6z" fill="currentColor" stroke="none"/></svg>
+            </button>
+            <button class="icon-btn ov" id="btnFull" type="button" aria-label="Pantalla completa">
+              <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M4 15v5h5M20 9V4h-5"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
+
     <img id="pArt" class="p-art" src="" alt="" hidden>
 
     <div class="p-ui">
-      <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Progreso">
-      <div class="p-times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
-      <div class="p-controls">
-        <button class="icon-btn" id="btnPrev" type="button" aria-label="Anterior">
-          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM18 6l-8 6 8 6z" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="play-btn" id="btnPlay" type="button" aria-label="Reproducir">
-          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="icon-btn" id="btnNext" type="button" aria-label="Siguiente">
-          <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8 6-8 6z" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="pill" id="btnRate" type="button" aria-label="Velocidad">1x</button>
-        <button class="pill" id="btnQuality" type="button" aria-label="Calidad de vídeo">HD</button>
-        <button class="icon-btn" id="btnFull" type="button" aria-label="Pantalla completa">
-          <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M4 15v5h5M20 9V4h-5"/></svg>
-        </button>
-      </div>
       <div class="p-actions">
         <button class="pill neon-outline" id="btnQueueAdd" type="button">+ Añadir a la cola</button>
         <span class="pill" id="pPos">0/0</span>
+      </div>
+      <div class="p-extras hscroll">
+        <button class="pill" id="btnShuffleQ" type="button" aria-pressed="false">🔀 Shuffle</button>
+        <button class="pill" id="btnRepeat" type="button" aria-pressed="false">🔁 Off</button>
+        <button class="pill" id="btnAuto" type="button" aria-pressed="true">▶∞ Auto</button>
+        <button class="pill" id="btnSleep" type="button">😴 Off</button>
+        <button class="pill" id="btnShare" type="button">↗ Compartir</button>
+        <button class="pill" id="btnInfo" type="button" aria-pressed="false">ℹ Info</button>
+        <button class="pill" id="btnPl" type="button">▤ Playlists</button>
+        <button class="pill" id="btnChannel" type="button">＋ Canal</button>
+      </div>
+      <div id="pDesc" class="desc glass" hidden>
+        <div id="pDescTxt"></div>
+        <button class="pill" id="btnComments" type="button">Ver comentarios</button>
+        <div id="pComments" class="comments" hidden></div>
       </div>
     </div>
 
@@ -138,8 +184,6 @@
       <h3>A continuación</h3>
       <div id="upNextList" class="uplist"></div>
     </div>
-
-    <div id="qualityMenu" class="qmenu glass" hidden role="menu" aria-label="Calidad de vídeo"></div>
   </section>
 
   <nav class="bottomnav glass" id="bottomnav" aria-label="Navegación principal">
@@ -161,16 +205,38 @@
   <div id="modal" class="overlay" hidden>
     <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="mHead">
       <h2 id="mHead">Ajustes</h2>
+      <div class="set-row"><span>Tema de acento</span>
+        <div id="themeRow" class="swatches">
+          <button class="swatch" data-theme="green"  style="--sw:#39ff14" type="button" aria-label="Verde neón"></button>
+          <button class="swatch" data-theme="cyan"   style="--sw:#00e5ff" type="button" aria-label="Cian"></button>
+          <button class="swatch" data-theme="magenta" style="--sw:#ff2ec4" type="button" aria-label="Magenta"></button>
+          <button class="swatch" data-theme="amber"  style="--sw:#ffb300" type="button" aria-label="Ámbar"></button>
+        </div>
+      </div>
+      <label class="set-check"><input type="checkbox" id="chkCompact"> Vista compacta (2 columnas)</label>
+      <label class="set-check"><input type="checkbox" id="chkData"> Ahorro de datos (miniaturas ligeras + tope 720p)</label>
       <label for="apiKeyInput">API Key — YouTube Data API v3
         <input id="apiKeyInput" type="password" inputmode="text" autocomplete="off"
                spellcheck="false" maxlength="60" placeholder="AIza…">
       </label>
-      <p class="hint">La clave se guarda <strong>solo en este dispositivo</strong>. Si un día publicas el dominio, restríngela por <em>referidor HTTP</em> en Google Cloud.</p>
+      <p class="hint">La clave se guarda <strong>solo en este dispositivo</strong>.</p>
       <div class="m-actions">
         <button class="pill neon-outline" id="btnSaveKey" type="button">Guardar</button>
         <button class="pill" id="btnClearKey" type="button">Borrar</button>
         <button class="pill" id="btnCloseModal" type="button">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <div id="plModal" class="overlay" hidden>
+    <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="plHead">
+      <h2 id="plHead">Playlists</h2>
+      <div class="m-actions">
+        <input id="plNameInput" class="txt" type="text" maxlength="40" placeholder="Nueva playlist…" aria-label="Nombre de playlist">
+        <button class="pill neon-outline" id="btnPlCreate" type="button">Crear</button>
+      </div>
+      <div id="plList" class="pllist"></div>
+      <div class="m-actions"><button class="pill" id="btnPlClose" type="button">Cerrar</button></div>
     </div>
   </div>
 
