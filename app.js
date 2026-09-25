@@ -1,9 +1,7 @@
-/* ============ NeonTube — app.js FINAL v3 ============
-   YouTube Data API v3 + IFrame Player API + cola persistente + PWA.
-   v3: filtro status.embeddable en trending, onError con auto-salto,
-   aviso file://, origin dinámico en el embed, clave embebida.
-   Seguridad: DOM sin innerHTML remoto, videoId validado, allowlist media,
-   AbortController, manejo de cuota/errores, storage try/catch.
+/* ============ NeonTube — app.js FINAL v4 ============
+   v4: fix primer clic → createYT recibe videoId y reproduce en onReady.
+   Incluye: filtro status.embeddable, onError con auto-salto, aviso file://,
+   origin dinámico, clave embebida, cola persistente, PWA-ready.
 ======================================================*/
 'use strict';
 (() => {
@@ -178,7 +176,6 @@
     try {
       const src = state.query.trim() ? { type: 'search', q: state.query.trim() } : state.source;
       if (src.type === 'chart') {
-        /* v3: part=status + filtro embeddable → fuera vídeos que no permiten inserción */
         const region = src.region || (navigator.language || 'es-MX').split('-')[1] || 'MX';
         const data = await ytFetch('/videos', {
           part: 'snippet,contentDetails,status', chart: 'mostPopular',
@@ -294,17 +291,20 @@
   }
   function createYT(id) {
     ytPlayer = new window.YT.Player('ytHost', {
+      videoId: id, /* v4: FIX — el player nace CON el vídeo elegido */
       playerVars: Object.assign(
         { controls: 0, rel: 0, playsinline: 1, modestbranding: 1, disablekb: 1 },
         (location.protocol === 'http:' || location.protocol === 'https:') ? { origin: location.origin } : {}
       ),
       events: {
-        onReady: (e) => { try { e.target.setPlaybackRate(state.rate); } catch (_) {} },
+        onReady: (e) => {
+          try { e.target.setPlaybackRate(state.rate); } catch (_) {}
+          try { e.target.playVideo(); } catch (_) {} /* v4: FIX — reproduce al nacer */
+        },
         onStateChange: (e) => {
           if (e.data === window.YT.PlayerState.ENDED) next();
           syncPlayIcons();
         },
-        /* v3: errores del player → aviso y auto-salto al siguiente de la cola */
         onError: (e) => {
           const code = e && e.data;
           if (code === 101 || code === 150) toast('El dueño no permite insertar este vídeo → saltando');
@@ -536,10 +536,9 @@
 
   /* ---------- Arranque ---------- */
   function init() {
-    /* v3: aviso si alguien abre el archivo sin servidor (Error 153) */
     if (location.protocol === 'file:') {
       const n = $('demoNote');
-      n.textContent = '⚀ file:// detectado: el player de YouTube y el Service Worker necesitan http://localhost o HTTPS. Sirve la carpeta con un servidor o usa tu URL de GitHub Pages.';
+      n.textContent = '⚠ file:// detectado: el player de YouTube y el Service Worker necesitan http://localhost o HTTPS. Sirve la carpeta con un servidor o usa tu URL de GitHub Pages.';
       n.hidden = false;
     }
     state.queue = loadQueue();
