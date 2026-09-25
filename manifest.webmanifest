@@ -1,0 +1,21 @@
+{
+  "name": "NeonTube — tu YouTube, tu estilo",
+  "short_name": "NeonTube",
+  "description": "Reproductor personalizado con YouTube Data API v3, glassmorphism y verde neón.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050806",
+  "theme_color": "#050806",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
