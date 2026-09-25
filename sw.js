@@ -1,8 +1,7 @@
-/* NeonTube SW v2 — cachea SOLO el shell same-origin.
-   YouTube/Googleapis siempre por red: privacidad, cuotas y ToS limpios.
-   Al tocar este archivo, sube el número de CACHE para forzar actualización. */
+/* NeonTube SW v3 — cachea SOLO el shell same-origin.
+   YouTube/Googleapis siempre por red. Sube CACHE al tocar este archivo. */
 'use strict';
-const CACHE = 'neontube-shell-v2';
+const CACHE = 'neontube-shell-v3';
 const SHELL = Object.freeze([
   './', './index.html', './styles.css', './app.js',
   './manifest.webmanifest', './icon.svg'
@@ -29,7 +28,6 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  /* Same-origin (shell): cache-first + revalidación silenciosa + fallback offline */
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((hit) => {
@@ -53,5 +51,5 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  /* Cross-origin (YouTube, Googleapis, avatares): red directa, sin cacheo */
+  /* Cross-origin: red directa, sin cacheo */
 });

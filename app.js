@@ -1,8 +1,10 @@
-/* ============ NeonTube — app.js FINAL ============
+/* ============ NeonTube — app.js FINAL v3 ============
    YouTube Data API v3 + IFrame Player API + cola persistente + PWA.
-   Seguridad: DOM sin innerHTML remoto (solo SVG constantes), videoId validado,
-   allowlist de hosts media, AbortController, manejo de cuota/errores, storage try/catch.
-================================********************/
+   v3: filtro status.embeddable en trending, onError con auto-salto,
+   aviso file://, origin dinámico en el embed, clave embebida.
+   Seguridad: DOM sin innerHTML remoto, videoId validado, allowlist media,
+   AbortController, manejo de cuota/errores, storage try/catch.
+======================================================*/
 'use strict';
 (() => {
 
@@ -26,7 +28,7 @@
   const ICON_X = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const THUMB_FALLBACK = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"><rect width="16" height="9" fill="%23050806"/><path d="M6.5 2.5v4l3.5-2z" fill="%2339ff14"/><rect x="0.3" y="0.3" width="15.4" height="8.4" fill="none" stroke="%2339ff14" stroke-opacity="0.35" stroke-width="0.2"/></svg>';
 
-  /* Clave embebida (uso personal). El modal ⚙ permite sobreescribirla en este dispositivo. */
+  /* Clave embebida (uso personal). El modal ⚙ permite sobreescribirla por dispositivo. */
   const DEFAULT_KEY = 'AIzaSyCQYIC9hnzvA_vf9kSXBmoG61sijPjaQ4c';
 
   const DEMO_CATALOG = Object.freeze([
@@ -176,13 +178,15 @@
     try {
       const src = state.query.trim() ? { type: 'search', q: state.query.trim() } : state.source;
       if (src.type === 'chart') {
+        /* v3: part=status + filtro embeddable → fuera vídeos que no permiten inserción */
         const region = src.region || (navigator.language || 'es-MX').split('-')[1] || 'MX';
         const data = await ytFetch('/videos', {
-          part: 'snippet,contentDetails', chart: 'mostPopular',
+          part: 'snippet,contentDetails,status', chart: 'mostPopular',
           regionCode: region, maxResults: '20', pageToken: token
         });
-        state.items = reset ? (data.items || []).map(mapChartItem).filter(Boolean)
-                            : state.items.concat((data.items || []).map(mapChartItem).filter(Boolean));
+        const ok = (data.items || []).filter(it => it && it.status && it.status.embeddable === true);
+        const mapped = ok.map(mapChartItem).filter(Boolean);
+        state.items = reset ? mapped : state.items.concat(mapped);
         state.nextPage = data.nextPageToken || null;
       } else {
         const data = await ytFetch('/search', {
@@ -190,8 +194,8 @@
           maxResults: '20', q: src.q, pageToken: token,
           eventType: src.live ? 'live' : null
         });
-        state.items = reset ? (data.items || []).map(mapSearchItem).filter(Boolean)
-                            : state.items.concat((data.items || []).map(mapSearchItem).filter(Boolean));
+        const mapped = (data.items || []).map(mapSearchItem).filter(Boolean);
+        state.items = reset ? mapped : state.items.concat(mapped);
         state.nextPage = data.nextPageToken || null;
       }
       render();
@@ -290,12 +294,24 @@
   }
   function createYT(id) {
     ytPlayer = new window.YT.Player('ytHost', {
-      playerVars: { controls: 0, rel: 0, playsinline: 1, modestbranding: 1, disablekb: 1 },
+      playerVars: Object.assign(
+        { controls: 0, rel: 0, playsinline: 1, modestbranding: 1, disablekb: 1 },
+        (location.protocol === 'http:' || location.protocol === 'https:') ? { origin: location.origin } : {}
+      ),
       events: {
         onReady: (e) => { try { e.target.setPlaybackRate(state.rate); } catch (_) {} },
         onStateChange: (e) => {
           if (e.data === window.YT.PlayerState.ENDED) next();
           syncPlayIcons();
+        },
+        /* v3: errores del player → aviso y auto-salto al siguiente de la cola */
+        onError: (e) => {
+          const code = e && e.data;
+          if (code === 101 || code === 150) toast('El dueño no permite insertar este vídeo → saltando');
+          else if (code === 100) toast('Vídeo privado o eliminado → saltando');
+          else if (code === 2) toast('ID de vídeo inválido');
+          else if (code === 5) toast('Error HTML5 interno del player');
+          if (code === 100 || code === 101 || code === 150) setTimeout(next, 900);
         }
       }
     });
@@ -520,6 +536,12 @@
 
   /* ---------- Arranque ---------- */
   function init() {
+    /* v3: aviso si alguien abre el archivo sin servidor (Error 153) */
+    if (location.protocol === 'file:') {
+      const n = $('demoNote');
+      n.textContent = '⚀ file:// detectado: el player de YouTube y el Service Worker necesitan http://localhost o HTTPS. Sirve la carpeta con un servidor o usa tu URL de GitHub Pages.';
+      n.hidden = false;
+    }
     state.queue = loadQueue();
     renderQueueBadge();
     bindUI();
