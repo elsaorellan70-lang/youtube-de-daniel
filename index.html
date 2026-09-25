@@ -122,7 +122,7 @@
             <svg viewBox="0 0 24 24"><path d="M11 6l-6 6 6 6M18 6l-6 6 6 6"/></svg>
           </button>
           <button class="play-btn" id="btnPlay" type="button" aria-label="Reproducir o pausar">
-           <img src="logo.png" alt="Logo de Daniel" width="26" height="26" style="border-radius:6px;object-fit:cover">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg>
           </button>
           <button class="icon-btn ov big" id="btnFwd10" type="button" aria-label="Adelantar 10 segundos">
             <svg viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg>
@@ -136,7 +136,7 @@
             <span id="tDur">0:00</span>
           </div>
           <div class="ov-vol">
-            <button class="icon-btn ov sm" id="btnMute" type="button" aria-label="Silenciar">
+            <button class="icon-btn ov sm" id="btnMute" type="button" aria-label="Silenciar" aria-pressed="false">
               <svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6l-5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg>
             </button>
             <input type="range" id="vol" min="0" max="100" step="1" value="100" aria-label="Volumen">
@@ -207,10 +207,10 @@
       <h2 id="mHead">Ajustes</h2>
       <div class="set-row"><span>Tema de acento</span>
         <div id="themeRow" class="swatches">
-          <button class="swatch" data-theme="green"  style="--sw:#39ff14" type="button" aria-label="Verde neón"></button>
-          <button class="swatch" data-theme="cyan"   style="--sw:#00e5ff" type="button" aria-label="Cian"></button>
-          <button class="swatch" data-theme="magenta" style="--sw:#ff2ec4" type="button" aria-label="Magenta"></button>
-          <button class="swatch" data-theme="amber"  style="--sw:#ffb300" type="button" aria-label="Ámbar"></button>
+          <button class="swatch" data-theme="green" type="button" aria-label="Verde neón"></button>
+          <button class="swatch" data-theme="cyan" type="button" aria-label="Cian"></button>
+          <button class="swatch" data-theme="magenta" type="button" aria-label="Magenta"></button>
+          <button class="swatch" data-theme="amber" type="button" aria-label="Ámbar"></button>
         </div>
       </div>
       <label class="set-check"><input type="checkbox" id="chkCompact"> Vista compacta (2 columnas)</label>
