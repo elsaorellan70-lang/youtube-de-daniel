@@ -1,7 +1,9 @@
-/* ============ NeonTube — app.js FINAL v4 ============
-   v4: fix primer clic → createYT recibe videoId y reproduce en onReady.
-   Incluye: filtro status.embeddable, onError con auto-salto, aviso file://,
-   origin dinámico, clave embebida, cola persistente, PWA-ready.
+/* ============ NeonTube — app.js FINAL v5 ============
+   v5: gestos doble-toque ±10s, tap play/pausa, skeletons, topProgress,
+   spinner buffering, lista "A continuación", menú de calidad, mini-progreso,
+   warm-up del IFrame API al arrancar.
+   Hereda v4: videoId en createYT, filtro embeddable, onError auto-salto,
+   origin dinámico, aviso file://, clave embebida, cola persistente.
 ======================================================*/
 'use strict';
 (() => {
@@ -25,6 +27,10 @@
   const ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" stroke="none"/></svg>';
   const ICON_X = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const THUMB_FALLBACK = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"><rect width="16" height="9" fill="%23050806"/><path d="M6.5 2.5v4l3.5-2z" fill="%2339ff14"/><rect x="0.3" y="0.3" width="15.4" height="8.4" fill="none" stroke="%2339ff14" stroke-opacity="0.35" stroke-width="0.2"/></svg>';
+  const QLABELS = Object.freeze({
+    'default': 'Automática', highres: 'Máxima (4K+)', hd2160: '2160p', hd1440: '1440p',
+    hd1080: '1080p', hd720: '720p', large: '480p', medium: '360p', small: '240p', tiny: '144p'
+  });
 
   /* Clave embebida (uso personal). El modal ⚙ permite sobreescribirla por dispositivo. */
   const DEFAULT_KEY = 'AIzaSyCQYIC9hnzvA_vf9kSXBmoG61sijPjaQ4c';
@@ -57,7 +63,7 @@
     view: 'feed', chip: 0, query: '', source: CHIPS[0].src,
     items: [], nextPage: null, loading: false,
     queue: [], qIndex: -1, current: null,
-    rate: 1, audioOnly: false, kind: null
+    rate: 1, audioOnly: false, kind: null, quality: 'default'
   };
 
   /* ---------- Storage seguro ---------- */
@@ -156,6 +162,20 @@
              thumb, dur: parseISO8601(it.contentDetails && it.contentDetails.duration) };
   }
 
+  /* ---------- Skeletons + progreso global (v5) ---------- */
+  function renderSkeleton(n = 4) {
+    const feed = $('feed');
+    feed.replaceChildren();
+    for (let i = 0; i < n; i++) {
+      const c = el('div', 'card skel');
+      c.appendChild(el('div', 'thumb'));
+      const meta = el('div', 'meta');
+      meta.appendChild(el('div', 'line w60'));
+      c.appendChild(meta);
+      feed.appendChild(c);
+    }
+  }
+
   async function loadFeed(reset = true) {
     if (state.loading) return;
     const key = getKey();
@@ -171,8 +191,9 @@
     }
     note.hidden = true;
     state.loading = true;
+    $('topProgress').hidden = false;               // v5
     const token = reset ? null : state.nextPage;
-    if (reset) { state.items = []; state.nextPage = null; render(); }
+    if (reset) { state.items = []; state.nextPage = null; renderSkeleton(); }  // v5
     try {
       const src = state.query.trim() ? { type: 'search', q: state.query.trim() } : state.source;
       if (src.type === 'chart') {
@@ -203,6 +224,7 @@
       else toast('Sin conexión o error de API: ' + (err && err.message ? err.message : 'desconocido'));
     } finally {
       state.loading = false;
+      $('topProgress').hidden = true;              // v5
       $('btnMore').hidden = !state.nextPage;
     }
   }
@@ -213,7 +235,7 @@
     card.type = 'button';
     const thumb = el('div', 'thumb');
     const img = el('img');
-    img.src = item.thumb; img.alt = ''; img.loading = 'lazy';
+    img.src = item.thumb; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
     img.addEventListener('error', () => { img.src = THUMB_FALLBACK; }, { once: true });
     thumb.appendChild(img);
@@ -232,7 +254,7 @@
       rm.addEventListener('click', (ev) => {
         ev.stopPropagation();
         state.queue.splice(index, 1);
-        saveQueue(); renderQueueBadge(); render();
+        saveQueue(); renderQueueBadge(); renderUpNext(); render();
         toast('Eliminado de la cola');
       });
       meta.appendChild(rm);
@@ -274,6 +296,36 @@
     b.hidden = state.queue.length === 0;
   }
 
+  /* ---------- v5: lista "A continuación" ---------- */
+  function renderUpNext() {
+    const box = $('upNextList');
+    if (!box) return;
+    box.replaceChildren();
+    if (!state.queue.length) {
+      box.appendChild(el('p', 's', 'Cola vacía: añade vídeos y aparecerán aquí.'));
+      return;
+    }
+    state.queue.forEach((it, i) => {
+      const b = el('button', 'upitem' + (i === state.qIndex ? ' current' : ''));
+      b.type = 'button';
+      const img = el('img');
+      img.src = it.thumb; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
+      img.addEventListener('error', () => { img.src = THUMB_FALLBACK; }, { once: true });
+      b.appendChild(img);
+      const tx = el('div');
+      tx.appendChild(el('div', 't', it.title));
+      tx.appendChild(el('div', 's', it.channel + (it.dur ? ' · ' + it.dur : '')));
+      b.appendChild(tx);
+      b.addEventListener('click', () => {
+        state.qIndex = i;
+        state.current = it;
+        openPlayer(it);
+        if (it.kind === 'yt') playYT(it); else playFile(it);
+      });
+      box.appendChild(b);
+    });
+  }
+
   /* ---------- IFrame Player API ---------- */
   let ytPlayer = null, ytReady = false, pendingId = null, poll = 0;
   const video = $('video');
@@ -291,7 +343,7 @@
   }
   function createYT(id) {
     ytPlayer = new window.YT.Player('ytHost', {
-      videoId: id, /* v4: FIX — el player nace CON el vídeo elegido */
+      videoId: id,
       playerVars: Object.assign(
         { controls: 0, rel: 0, playsinline: 1, modestbranding: 1, disablekb: 1 },
         (location.protocol === 'http:' || location.protocol === 'https:') ? { origin: location.origin } : {}
@@ -299,13 +351,17 @@
       events: {
         onReady: (e) => {
           try { e.target.setPlaybackRate(state.rate); } catch (_) {}
-          try { e.target.playVideo(); } catch (_) {} /* v4: FIX — reproduce al nacer */
+          if (state.quality !== 'default') { try { e.target.setPlaybackQuality(state.quality); } catch (_) {} }
+          try { e.target.playVideo(); } catch (_) {}
         },
         onStateChange: (e) => {
-          if (e.data === window.YT.PlayerState.ENDED) next();
+          const S = window.YT.PlayerState;
+          $('stageSpinner').hidden = (e.data !== S.BUFFERING && e.data !== S.CUED); // v5 spinner
+          if (e.data === S.ENDED) next();
           syncPlayIcons();
         },
         onError: (e) => {
+          $('stageSpinner').hidden = true;
           const code = e && e.data;
           if (code === 101 || code === 150) toast('El dueño no permite insertar este vídeo → saltando');
           else if (code === 100) toast('Vídeo privado o eliminado → saltando');
@@ -318,6 +374,7 @@
   }
   function playYT(item) {
     state.kind = 'yt';
+    $('stageSpinner').hidden = false;               // v5
     video.hidden = true; video.pause(); video.removeAttribute('src');
     $('ytHost').hidden = false;
     if (!ytReady || !ytPlayer) {
@@ -344,7 +401,9 @@
     $('pArt').src = item.thumb;
     $('player').hidden = false;
     $('mini').hidden = true;
+    $('qualityMenu').hidden = true;
     updatePos();
+    renderUpNext();                                  // v5
   }
   function playItem(item, list) {
     if (list && list.length) {
@@ -396,15 +455,61 @@
     if (state.kind === 'yt' && ytPlayer && ytPlayer.getCurrentTime) { try { return ytPlayer.getCurrentTime() || 0; } catch (_) { return 0; } }
     return video.currentTime || 0;
   }
+  function seekTo(t) {
+    const d = durationOf();
+    t = Math.min(Math.max(0, t), d || t);
+    if (state.kind === 'yt' && ytPlayer) { try { ytPlayer.seekTo(t, true); } catch (_) {} }
+    else if (state.kind === 'file') video.currentTime = t;
+  }
+  /* v5: ±10 s con feedback visual */
+  function seekBy(delta) {
+    if (!durationOf()) return;
+    seekTo(currentOf() + delta);
+    const g = delta < 0 ? $('gfxLeft') : $('gfxRight');
+    g.hidden = true;
+    g.style.animation = 'none'; void g.offsetWidth; g.style.animation = '';
+    g.hidden = false;
+    setTimeout(() => { g.hidden = true; }, 650);
+  }
   function startPoll() {
     clearInterval(poll);
     poll = setInterval(() => {
-      if ($('player').hidden && $('mini').hidden) return;
       const d = durationOf(), c = currentOf();
+      const pct = d ? (c / d) * 100 : 0;
+      const bar = $('mBarFill');
+      if (bar) bar.style.width = pct.toFixed(1) + '%';      // v5 mini-progreso
+      if ($('player').hidden && $('mini').hidden) return;
       $('tCur').textContent = fmtSec(c);
       $('tDur').textContent = fmtSec(d);
-      if (!$('seek').matches(':active')) $('seek').value = d ? String(Math.round((c / d) * 1000)) : '0';
+      if (!$('seek').matches(':active')) $('seek').value = String(Math.round(pct * 10));
     }, 500);
+  }
+
+  /* ---------- v5: menú de calidad ---------- */
+  function openQualityMenu() {
+    const menu = $('qualityMenu');
+    if (state.kind !== 'yt' || !ytPlayer || !ytPlayer.getAvailableQualityLevels) {
+      toast('Calidad ajustable solo en vídeos de YouTube');
+      return;
+    }
+    const levels = (ytPlayer.getAvailableQualityLevels() || []).filter(l => l && l !== 'auto');
+    const options = ['default'].concat(levels);
+    menu.replaceChildren();
+    options.forEach(q => {
+      const b = el('button', 'qitem', QLABELS[q] || q);
+      b.type = 'button';
+      b.setAttribute('role', 'menuitemradio');
+      b.setAttribute('aria-checked', String(q === state.quality));
+      b.addEventListener('click', () => {
+        state.quality = q;
+        try { ytPlayer.setPlaybackQuality(q); } catch (_) {}
+        $('btnQuality').textContent = q === 'default' ? 'HD' : (QLABELS[q] || q);
+        menu.hidden = true;
+        toast('Calidad: ' + (QLABELS[q] || q) + (q !== 'default' ? ' (YouTube puede autoajustar por red)' : ''));
+      });
+      menu.appendChild(b);
+    });
+    menu.hidden = false;
   }
 
   /* ---------- Eventos de UI ---------- */
@@ -452,18 +557,18 @@
     $('mPlay').addEventListener('click', togglePlay);
     $('btnNext').addEventListener('click', next);
     $('btnPrev').addEventListener('click', prev);
-    $('seek').addEventListener('input', (e) => {
-      const d = durationOf();
-      const t = (Number(e.target.value) / 1000) * d;
-      if (state.kind === 'yt' && ytPlayer) { try { ytPlayer.seekTo(t, true); } catch (_) {} }
-      else if (state.kind === 'file') video.currentTime = t;
-    });
+    $('seek').addEventListener('input', (e) => seekTo((Number(e.target.value) / 1000) * durationOf()));
     $('btnRate').addEventListener('click', () => {
       const i = (RATES.indexOf(state.rate) + 1) % RATES.length;
       state.rate = RATES[i];
       $('btnRate').textContent = state.rate + 'x';
       if (state.kind === 'yt' && ytPlayer) { try { ytPlayer.setPlaybackRate(state.rate); } catch (_) {} }
       else video.playbackRate = state.rate;
+    });
+    $('btnQuality').addEventListener('click', openQualityMenu);
+    document.addEventListener('click', (e) => {
+      const menu = $('qualityMenu');
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== $('btnQuality')) menu.hidden = true;
     });
     $('btnFull').addEventListener('click', () => {
       const target = state.kind === 'yt' ? $('ytHost') : video;
@@ -495,12 +600,35 @@
       const it = currentItem();
       if (!it) return;
       if (state.queue.some(q => q.kind === it.kind && q.id === it.id)) { toast('Ya está en la cola'); return; }
-      state.queue.push(it); saveQueue(); renderQueueBadge(); toast('Añadido a la cola ✓');
+      state.queue.push(it); saveQueue(); renderQueueBadge(); renderUpNext(); toast('Añadido a la cola ✓');
+    });
+
+    /* v5: gestos sobre el stage (capa transparente encima del iframe) */
+    const stage = $('pStage');
+    const layer = el('div');
+    layer.style.cssText = 'position:absolute;inset:0;z-index:3;background:transparent;touch-action:manipulation;';
+    stage.appendChild(layer);
+    let lastTap = 0, tapTimer = 0;
+    layer.addEventListener('pointerup', (e) => {
+      const now = Date.now();
+      const rect = stage.getBoundingClientRect();
+      const leftHalf = (e.clientX - rect.left) < rect.width / 2;
+      if (now - lastTap < 300) {
+        clearTimeout(tapTimer);
+        lastTap = 0;
+        seekBy(leftHalf ? -10 : 10);
+      } else {
+        lastTap = now;
+        clearTimeout(tapTimer);
+        tapTimer = setTimeout(() => { togglePlay(); lastTap = 0; }, 300);
+      }
     });
 
     video.addEventListener('ended', next);
     video.addEventListener('play', syncPlayIcons);
     video.addEventListener('pause', syncPlayIcons);
+    video.addEventListener('waiting', () => { $('stageSpinner').hidden = false; });
+    video.addEventListener('playing', () => { $('stageSpinner').hidden = true; });
 
     $('btnSettings').addEventListener('click', () => {
       $('apiKeyInput').value = getKey();
@@ -527,6 +655,7 @@
     if (ytPlayer && ytPlayer.stopVideo) { try { ytPlayer.stopVideo(); } catch (_) {} }
     video.pause(); video.removeAttribute('src'); video.load();
     $('player').hidden = true; $('mini').hidden = true;
+    $('stageSpinner').hidden = true;
     state.current = null; state.kind = null;
   }
   function setTab(name, doRender = true) {
@@ -546,6 +675,7 @@
     bindUI();
     startPoll();
     syncPlayIcons();
+    loadIframeAPI();   // v5: warm-up → el primer tap no espera el script
     loadFeed(true);
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

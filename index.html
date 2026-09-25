@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#050806">
-  <!-- CSP: solo self + dominios oficiales de YouTube/Google e imágenes conocidas -->
+  <!-- v5: preconnect = menos latencia en primera carga móvil -->
+  <link rel="preconnect" href="https://www.googleapis.com">
+  <link rel="preconnect" href="https://i.ytimg.com">
+  <link rel="preconnect" href="https://www.youtube.com">
+  <link rel="preconnect" href="https://s.ytimg.com">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com;
                  frame-src https://www.youtube.com; connect-src 'self' https://www.googleapis.com;
@@ -15,11 +19,16 @@
                  object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon.svg">
   <title>NeonTube — tu YouTube, tu estilo</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="app">
+  <div id="topProgress" hidden></div>
 
   <header class="topbar glass">
     <span class="brand-logo" aria-hidden="true">
@@ -70,6 +79,7 @@
     <button class="icon-btn" id="mClose" type="button" aria-label="Detener">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
+    <span class="m-bar"><i id="mBarFill"></i></span>
   </div>
 
   <section id="player" class="player" hidden aria-label="Reproductor">
@@ -89,6 +99,13 @@
     <div class="p-stage" id="pStage">
       <video id="video" playsinline preload="metadata" hidden></video>
       <div id="ytHost"></div>
+      <div id="stageSpinner" class="spinner" hidden></div>
+      <div class="gfx" id="gfxLeft" hidden>
+        <svg viewBox="0 0 24 24"><path d="M11 6l-6 6 6 6M18 6l-6 6 6 6"/></svg><span>−10 s</span>
+      </div>
+      <div class="gfx" id="gfxRight" hidden>
+        <svg viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg><span>+10 s</span>
+      </div>
     </div>
     <img id="pArt" class="p-art" src="" alt="" hidden>
 
@@ -105,7 +122,8 @@
         <button class="icon-btn" id="btnNext" type="button" aria-label="Siguiente">
           <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8 6-8 6z" fill="currentColor" stroke="none"/></svg>
         </button>
-        <button class="pill" id="btnRate" type="button" aria-label="Velocidad de reproducción">1x</button>
+        <button class="pill" id="btnRate" type="button" aria-label="Velocidad">1x</button>
+        <button class="pill" id="btnQuality" type="button" aria-label="Calidad de vídeo">HD</button>
         <button class="icon-btn" id="btnFull" type="button" aria-label="Pantalla completa">
           <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M4 15v5h5M20 9V4h-5"/></svg>
         </button>
@@ -115,6 +133,13 @@
         <span class="pill" id="pPos">0/0</span>
       </div>
     </div>
+
+    <div class="upnext">
+      <h3>A continuación</h3>
+      <div id="upNextList" class="uplist"></div>
+    </div>
+
+    <div id="qualityMenu" class="qmenu glass" hidden role="menu" aria-label="Calidad de vídeo"></div>
   </section>
 
   <nav class="bottomnav glass" id="bottomnav" aria-label="Navegación principal">
